@@ -1,0 +1,111 @@
+# ═══ Package Dependencies ═══
+# Minified/vendor code dilutes context and wastes tokens
+node_modules/
+vendor/
+.venv/
+
+# ═══ Build Artifacts ═══
+# Compiled output is structurally unreadable for source modifications
+dist/
+build/
+.next/
+out/
+*.bundle.js
+*.min.js
+*.min.css
+
+# ═══ Environment & Secrets ═══
+# Must never enter Claude's context window
+.env
+.env.*
+service-account*.json
+*.pem
+*.key
+
+# ═══ Lock Files ═══
+# Machine-generated noise with no signal for code understanding
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# ═══ Binary & Media Assets ═══
+# Non-text files provide no useful context
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.ico
+*.webp
+*.avif
+*.woff
+*.woff2
+*.ttf
+*.eot
+*.mp4
+*.mp3
+*.webm
+*.zip
+*.tar.gz
+*.rar
+
+# ═══ Data Files ═══
+# Large datasets bloat context; schemas should be inferred instead
+*.sql
+*.csv
+*.dump
+*.sqlite
+*.db
+
+# ═══ Test & Coverage Reports ═══
+# Generated output, not source
+coverage/
+.nyc_output/
+
+# ═══ Logs & Temp Files ═══
+# Ephemeral execution data with no structural context
+logs/
+*.log
+*.tmp
+*.bak
+scratch_*.txt
+
+# ═══ IDE & OS Files ═══
+# Editor/OS state is irrelevant to code understanding
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ═══ Other Tool Configs ═══
+# Claude doesn't need other AI tool configurations (except skills)
+.gemini/
+!.gemini/skills/
+
+# ═══ Phase Archives ═══
+# Completed phase docs are historical — read only when explicitly needed
+docs/archive/
+
+# ── Solis IP — gitignored for privacy, not security ─────────
+# Negate these so agents can read them without prompting.
+!CLAUDE.md
+!GEMINI.md
+!.agent/*.md
+!.agent/agents/
+!.agent/skills/
+!.agent/prompts/
+!.agent/workflows/
+!.agent/mcp/
+!.claude/commands/
+!.claude/hooks/
+!.claude/settings.json
+!.claude/skills/
+!.gemini/skills/
+!.templates/
+!USER_GUIDE.md
+!README.md
+!docs/CLAUDE.md
+!site/CLAUDE.md

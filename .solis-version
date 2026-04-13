@@ -1,0 +1,4 @@
+# Written by solis-deploy.sh at deploy time. Do not edit manually.
+# Used by bootstrap.sh on a new machine to check out the correct Solis version.
+SOLIS_COMMIT=390a8eadc819f116260878ebf6a2612d51243639
+DEPLOYED_AT=2026-04-13T15:38:20Z

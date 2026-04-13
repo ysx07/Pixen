@@ -1,0 +1,30 @@
+# ── Secrets — always restricted ─────────────────────────────
+.env
+.env.*
+*.pem
+*.key
+service-account*.json
+
+# ── Solis IP — gitignored for privacy, not security ─────────
+# Negate these so agents can read them without prompting.
+!CLAUDE.md
+!GEMINI.md
+!.agent/skills/
+!.agent/agents/
+!.agent/prompts/
+!.agent/workflows/
+!.agent/system-prompt.md
+!.agent/coding-standards.md
+!.agent/project-conventions.md
+!.agent/mcp/
+!.claude/commands/
+!.claude/hooks/
+!.claude/settings.json
+!.claude/skills/
+!.gemini/skills/
+!.templates/
+!USER_GUIDE.md
+!README.md
+!.agent/CLAUDE.md
+!docs/CLAUDE.md
+!site/CLAUDE.md
