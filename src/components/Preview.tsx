@@ -48,41 +48,53 @@ export function Preview({ beforeUrl, afterUrl, processing, progressLabel }: Prev
           backgroundSize: '16px 16px',
         }}
       >
-        <img
-          src={beforeUrl}
-          alt="before"
-          className="absolute inset-0 m-auto max-h-full max-w-full object-contain"
-        />
-
-        {afterUrl && (
+        {afterUrl ? (
           <>
+            {/* Before: clipped to left of divider */}
             <div
-              className="absolute inset-0 overflow-hidden"
+              className="absolute inset-0 h-full w-full"
+              style={{ clipPath: `inset(0 ${100 - dividerPct}% 0 0)` }}
+            >
+              <img
+                src={beforeUrl}
+                alt="before"
+                className="absolute inset-0 h-full w-full object-contain"
+              />
+            </div>
+            {/* After: clipped to right of divider */}
+            <div
+              className="absolute inset-0 h-full w-full"
               style={{ clipPath: `inset(0 0 0 ${dividerPct}%)` }}
             >
               <img
                 src={afterUrl}
                 alt="after"
-                className="absolute inset-0 m-auto max-h-full max-w-full object-contain"
+                className="absolute inset-0 h-full w-full object-contain"
               />
             </div>
             <div
-              className="absolute inset-y-0 cursor-ew-resize"
+              className="absolute inset-y-0 z-10 w-8 cursor-ew-resize"
               style={{ left: `${dividerPct}%`, transform: 'translateX(-50%)' }}
               onMouseDown={() => (dragging.current = true)}
             >
-              <div className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 bg-cream" />
-              <div className="absolute left-1/2 top-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-cream bg-taupe-900/60 text-center leading-7 text-cream">
+              <div className="absolute inset-y-0 left-1/2 w-1 -translate-x-1/2 bg-cream shadow-[0_0_4px_rgba(0,0,0,0.5)]" />
+              <div className="absolute left-1/2 top-1/2 h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-cream bg-taupe-900/80 text-center leading-7 text-cream shadow-[0_0_6px_rgba(0,0,0,0.5)]">
                 ⇆
               </div>
             </div>
-            <div className="absolute left-2 top-2 rounded bg-taupe-950/70 px-2 py-0.5 text-xs text-cream">
+            <div className="absolute left-2 top-2 z-10 rounded bg-taupe-950/70 px-2 py-0.5 text-xs text-cream">
               Before
             </div>
-            <div className="absolute right-2 top-2 rounded bg-taupe-950/70 px-2 py-0.5 text-xs text-cream">
+            <div className="absolute right-2 top-2 z-10 rounded bg-taupe-950/70 px-2 py-0.5 text-xs text-cream">
               After
             </div>
           </>
+        ) : (
+          <img
+            src={beforeUrl}
+            alt="before"
+            className="absolute inset-0 h-full w-full object-contain"
+          />
         )}
 
         {processing && (

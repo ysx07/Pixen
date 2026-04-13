@@ -146,7 +146,7 @@ All critical paths tested by the user:
 - ✅ Combined pipelines (multi-op sequences)
 - ✅ Reorder and remove operations
 - ✅ Download (correct filename, format, size)
-- ✅ Preview divider drag (smooth clip update)
+- ✅ Preview divider drag (smooth clip update; fixed z-index and side-by-side visibility)
 - ✅ Large JPEG input (no crash post-bugfixes)
 - ✅ Small PNG edge case (band-matching fixed)
 - ⚠️ Perceptual mode (SSIM search works; tuning may be iterative in Phase 2)
@@ -295,6 +295,10 @@ This phase was completed in a single Opus 4.6 session. Three critical bugs disco
 1. **Infinite re-process loop** from useEffect dependency mis-specification
 2. **Memory leaks** from un-freed Vips images on the Emscripten heap
 3. **Type mismatch** on pad background argument for non-RGB images
+4. **Preview image misalignment:** `img` tags used `m-auto`, causing letterboxed images to lose spatial alignment. Fixed with `h-full w-full object-contain`.
+5. **Invisible/Unclickable divider:** Missing `z-index` on divider and zero-width hit area. Fixed with `z-10`, `w-8` hit area, and shadow styling for contrast.
+6. **Preview side-by-side logic:** Original logic just overlaid "after" on "before", which hid changes in operations like Padding. Fixed by explicitly clipping both images at the divider.
+7. **Collapsing preview containers:** `absolute inset-0` wrappers were collapsing to 0x0. Fixed with explicit `h-full w-full`.
 
 All fixes are committed and tested. The app is ready for Phase 2 (batch processing).
 
