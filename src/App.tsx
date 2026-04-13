@@ -61,13 +61,14 @@ export default function App() {
   };
 
   // Debounced auto-run on pipeline or input change.
+  // Note: do NOT depend on `output` — we mutate it inside and would loop forever.
   useEffect(() => {
     if (!ready || !input) return;
     if (operations.length === 0) {
-      if (output) {
-        URL.revokeObjectURL(output.url);
-        setOutput(null);
-      }
+      setOutput((prev) => {
+        if (prev) URL.revokeObjectURL(prev.url);
+        return null;
+      });
       return;
     }
     const mySeq = ++runSeq.current;
@@ -103,7 +104,8 @@ export default function App() {
       void run();
     }, PREVIEW_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [ready, input, operations, output]);
+    // output is intentionally excluded to avoid a re-run feedback loop.
+  }, [ready, input, operations]);
 
   const handleDownload = () => {
     if (!output) return;

@@ -129,17 +129,26 @@ async function runPipeline(
     strip: false,
   };
 
-  let img: VipsImage = vips.Image.newFromBuffer(new Uint8Array(fileBuffer));
+  // Track every intermediate Vips.Image so we can free them deterministically.
+  // wasm-vips keeps images on the Emscripten heap; without .delete() we leak
+  // tens of MB per run and will hit "out of memory" within a few runs.
+  const disposables: VipsImage[] = [];
+  const track = (i: VipsImage): VipsImage => {
+    disposables.push(i);
+    return i;
+  };
+
+  let img: VipsImage = track(vips.Image.newFromBuffer(new Uint8Array(fileBuffer)));
 
   for (const op of operations) {
     switch (op.type) {
       case 'resize':
         progress(`Resize → ${op.width}×${op.height} (${op.mode})`);
-        img = applyResize(vips, img, op.width, op.height, op.mode);
+        img = track(applyResize(vips, img, op.width, op.height, op.mode));
         break;
       case 'pad':
         progress('Pad');
-        img = applyPad(img, op);
+        img = track(applyPad(img, op));
         break;
       case 'convert':
         progress(`Convert → ${op.format.toUpperCase()}`);
@@ -170,44 +179,54 @@ async function runPipeline(
 
   progress('Encode');
 
-  // PNG ignores quality; handle perceptual search only for lossy codecs.
-  const lossy = output.format !== 'png';
-  let finalQuality = output.quality;
-  let encoded: Uint8Array;
+  try {
+    // PNG ignores quality; handle perceptual search only for lossy codecs.
+    const lossy = output.format !== 'png';
+    let finalQuality = output.quality;
+    let encoded: Uint8Array;
 
-  if (lossy && output.perceptual) {
-    const searched = await perceptualSearch(img, output);
-    encoded = searched.buffer;
-    finalQuality = searched.quality;
-  } else {
-    encoded = encode(img, output, output.quality);
+    if (lossy && output.perceptual) {
+      const searched = await perceptualSearch(vips, img, output);
+      encoded = searched.buffer;
+      finalQuality = searched.quality;
+    } else {
+      encoded = encode(img, output, output.quality);
+    }
+
+    const width = img.width as number;
+    const height = img.height as number;
+
+    // Detach from the underlying Emscripten heap so the ArrayBuffer is transferable.
+    const buffer = encoded.slice().buffer;
+
+    const outName = buildOutputName(fileName, output);
+
+    const result: PipelineSuccess = {
+      id,
+      type: 'result',
+      status: 'success',
+      output: {
+        buffer,
+        fileName: outName,
+        mimeType: FORMAT_MIME[output.format],
+        width,
+        height,
+        byteLength: buffer.byteLength,
+        format: output.format,
+        quality: lossy ? finalQuality : undefined,
+      },
+      timings: { totalMs: performance.now() - t0 },
+    };
+    return result;
+  } finally {
+    for (const d of disposables) {
+      try {
+        d.delete();
+      } catch {
+        // Already deleted — ignore.
+      }
+    }
   }
-
-  const width = img.width as number;
-  const height = img.height as number;
-
-  // Detach from the underlying Emscripten heap so the ArrayBuffer is transferable.
-  const buffer = encoded.slice().buffer;
-
-  const outName = buildOutputName(fileName, output);
-
-  const result: PipelineSuccess = {
-    id,
-    type: 'result',
-    status: 'success',
-    output: {
-      buffer,
-      fileName: outName,
-      mimeType: FORMAT_MIME[output.format],
-      width,
-      height,
-      byteLength: buffer.byteLength,
-      format: output.format,
-      quality: lossy ? finalQuality : undefined,
-    },
-    timings: { totalMs: performance.now() - t0 },
-  };
-  return result;
 }
 
 // --- Operations ------------------------------------------------------------
@@ -269,6 +288,7 @@ function applyPad(
 ): VipsImage {
   const w = img.width as number;
   const h = img.height as number;
+  const bands = img.bands as number;
   const outW = w + op.left + op.right;
   const outH = h + op.top + op.bottom;
 
@@ -280,10 +300,28 @@ function applyPad(
 
   const options: Record<string, unknown> = { extend: extendMap[op.fillMode] };
   if (op.fillMode === 'color' && op.color) {
-    options.background = hexToRgb(op.color);
+    options.background = backgroundForBands(op.color, bands);
   }
 
   return img.embed(op.left, op.top, outW, outH, options);
+}
+
+function backgroundForBands(hex: string, bands: number): number[] {
+  const [r, g, b] = hexToRgb(hex);
+  const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+  switch (bands) {
+    case 1:
+      return [luma];
+    case 2:
+      return [luma, 255];
+    case 3:
+      return [r, g, b];
+    case 4:
+      return [r, g, b, 255];
+    default:
+      // Fall back to grey for unusual band counts (e.g. CMYK).
+      return Array(bands).fill(luma) as number[];
+  }
 }
 
 // --- Encoding --------------------------------------------------------------
@@ -298,23 +336,26 @@ function encode(img: VipsImage, cfg: OutputConfig, quality: number): Uint8Array 
 }
 
 async function perceptualSearch(
+  vips: VipsModule,
   img: VipsImage,
   cfg: OutputConfig,
 ): Promise<{ buffer: Uint8Array; quality: number }> {
-  const SSIM_TARGET = 0.97;
-  const refLuma = await getLuma(img);
+  const SSIM_TARGET = 0.95;
+  const refLuma = getLuma(img);
   const w = img.width as number;
   const h = img.height as number;
 
-  // Search downward from starting quality; stop when SSIM dips below target.
-  const startQ = cfg.quality;
+  // Start high, decrement by 5 until SSIM dips below threshold.
+  const startQ = Math.min(95, cfg.quality);
   let bestBuf = encode(img, cfg, startQ);
   let bestQ = startQ;
 
-  for (let q = startQ; q >= 40; q -= 5) {
+  for (let q = startQ - 5; q >= 40; q -= 5) {
     const buf = encode(img, cfg, q);
-    const candidate = await decodeLumaFromBuffer(buf, w, h);
-    if (!candidate) break;
+    const candidate = decodeLumaFromBuffer(vips, buf, w, h);
+    if (!candidate) {
+      break;
+    }
     const s = ssimLuma(refLuma, candidate, w, h);
     if (s >= SSIM_TARGET) {
       bestBuf = buf;
@@ -327,34 +368,52 @@ async function perceptualSearch(
   return { buffer: bestBuf, quality: bestQ };
 }
 
-async function getLuma(img: VipsImage): Promise<Uint8Array> {
+function getLuma(img: VipsImage): Uint8Array {
   const bw = img.colourspace('b-w');
-  // b-w returns a single-band image. writeToMemory returns raw pixel bytes.
-  const w = bw.width as number;
-  const h = bw.height as number;
-  const bands = bw.bands as number;
-  const mem = bw.writeToMemory() as Uint8Array;
-  if (bands === 1 && mem.length === w * h) return mem;
-  // Extract first band if layout differs.
-  const out = new Uint8Array(w * h);
-  for (let i = 0; i < out.length; i++) out[i] = mem[i * bands];
-  return out;
+  try {
+    const w = bw.width as number;
+    const h = bw.height as number;
+    const bands = bw.bands as number;
+    const mem = bw.writeToMemory() as Uint8Array;
+    if (bands === 1 && mem.length === w * h) {
+      // Copy off the Emscripten heap so the result survives bw.delete().
+      return new Uint8Array(mem);
+    }
+    const out = new Uint8Array(w * h);
+    for (let i = 0; i < out.length; i++) out[i] = mem[i * bands];
+    return out;
+  } finally {
+    try {
+      bw.delete();
+    } catch {
+      // ignore
+    }
+  }
 }
 
-async function decodeLumaFromBuffer(
+function decodeLumaFromBuffer(
+  vips: VipsModule,
   buf: Uint8Array,
   expectW: number,
   expectH: number,
-): Promise<Uint8Array | null> {
-  const vips: VipsModule = await getVips();
+): Uint8Array | null {
+  let img: VipsImage = null;
   try {
-    const img = vips.Image.newFromBuffer(buf);
+    img = vips.Image.newFromBuffer(buf);
     const w = img.width as number;
     const h = img.height as number;
     if (w !== expectW || h !== expectH) return null;
     return getLuma(img);
   } catch {
     return null;
+  } finally {
+    if (img) {
+      try {
+        img.delete();
+      } catch {
+        // ignore
+      }
+    }
   }
 }
 
