@@ -1,7 +1,8 @@
-:root {
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-}
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 * {
   margin: 0;
@@ -18,25 +19,83 @@ body,
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
   min-height: 100vh;
+  text-rendering: -webkit-optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 #root {
   width: 100%;
+  height: 100%;
   margin: 0 auto;
-  text-rendering: -webkit-optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background: white;
-  color: #333;
+  background-color: #FAFAF7;
+  color: #3A3A36;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
+/* Base heading styles */
+h1 {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 48px;
+  line-height: 56px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 40px;
+  line-height: 48px;
+  font-weight: 700;
+}
+
+h3 {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 600;
+}
+
+h4 {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+}
+
+/* Base form styles */
+button,
+input,
+select,
+textarea {
+  transition: color 0.2s, background-color 0.2s, border-color 0.2s;
+}
+
+input,
+textarea,
+select {
+  background-color: #F5F3F0;
+  border: 1px solid #DDD7CF;
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: #3A3A36;
+  font-family: inherit;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #A29E94;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: #A29E94;
+  box-shadow: 0 0 0 2px #EDEAE5;
+}
+
+body {
+  font-family: Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif;
 }

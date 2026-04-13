@@ -68,8 +68,8 @@ export function getSelectedBackend(): BackendName | null {
  */
 export async function removeBackground(
   imageBuffer: ArrayBuffer,
-  modelSelection?: string,
-  onProgress?: (progress: number) => void,
+  _modelSelection?: string,
+  _onProgress?: (progress: number) => void,
 ): Promise<ArrayBuffer> {
   // TODO: Implement background removal
   // 1. Load model from cache or download
@@ -91,16 +91,16 @@ export async function removeBackground(
  * - 4x upscale: 5-15 seconds
  *
  * @param imageBuffer - Raw image buffer
- * @param scaleFactor - 2 or 4
- * @param modelSelection - Optional specific model to use
- * @param onProgress - Optional progress callback (0-1)
+ * @param _scaleFactor - 2 or 4
+ * @param _modelSelection - Optional specific model to use
+ * @param _onProgress - Optional progress callback (0-1)
  * @returns Upscaled image buffer
  */
 export async function upscale(
   imageBuffer: ArrayBuffer,
-  scaleFactor: 2 | 4,
-  modelSelection?: string,
-  onProgress?: (progress: number) => void,
+  _scaleFactor: 2 | 4,
+  _modelSelection?: string,
+  _onProgress?: (progress: number) => void,
 ): Promise<ArrayBuffer> {
   // TODO: Implement upscaling
   // 1. Load model from cache or download
@@ -117,7 +117,7 @@ export async function upscale(
  * Useful for warming up cache before batch processing.
  * Returns true if already cached, false if newly downloaded.
  */
-export async function preloadModel(modelName: string): Promise<boolean> {
+export async function preloadModel(_modelName: string): Promise<boolean> {
   // TODO: Implement model preloading
   console.warn('preloadModel() not yet implemented')
   return false
@@ -145,10 +145,10 @@ export async function getCachedModels(): Promise<string[]> {
  * Useful for showing ETA to user before running batch.
  */
 export function estimateProcessingTime(
-  fileCount: number,
-  backend: BackendName,
-  includeBackgroundRemoval: boolean,
-  includeUpscale: boolean,
+  _fileCount: number,
+  _backend: BackendName,
+  _includeBackgroundRemoval: boolean,
+  _includeUpscale: boolean,
 ): number {
   // TODO: Implement time estimation based on backend and operations
   return 0
