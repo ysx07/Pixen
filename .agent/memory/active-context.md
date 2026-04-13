@@ -1,22 +1,38 @@
 # Active Context
 
 ## Current State
-Phase 1 (Core Processing) implemented. Single-image pipeline works end-to-end: drop → build ops → live before/after preview → download.
+**Phase 1 (Core Processing) — COMPLETE.** Single-image pipeline working end-to-end. All manual tests passing. Ready for Phase 2.
 
 ## What Was Done (Phase 1)
-- Worker protocol in `src/workers/protocol.ts` — typed messages for init, runPipeline, progress, result.
-- `src/utils/wasm-vips.ts` refactored to a worker-side init helper (dynamic import, threading detection).
-- `src/workers/processing-worker.ts` — real pipeline executor: resize (cover/contain/fill/inside/outside/max), pad (color/extend/mirror), convert (jpeg/png/webp/avif), compress with quality, stripMetadata, rename (tokens `{name}`, `{date}`), skip stubs for background-removal/upscale.
-- `src/utils/ssim.ts` — 8×8 block SSIM on luminance; used by perceptual compression search (starts from chosen quality, decrements by 5, stops when SSIM dips below 0.97).
-- `src/hooks/useProcessingWorker.ts` — singleton worker + promise-based `runPipeline` client.
-- UI components: `DropZone`, `PipelineBuilder`, `OperationEditor`, `Preview` (draggable divider), `DeltaDisplay`.
-- `App.tsx` rewritten to 3-pane layout with 200ms debounced auto-run on pipeline/input change.
-- `type-check`, `lint`, `build` all pass. wasm bundle ~5.7MB (expected for wasm-vips).
+- Complete single-image processing pipeline: drop → build operations → live preview → download
+- Worker-based architecture: wasm-vips runs off-thread, keeping UI responsive
+- Operations: resize (6 modes), pad (3 fill modes), convert (4 formats), compress (with perceptual SSIM), strip metadata, rename
+- Perceptual compression: 8×8-block luminance SSIM, quality search algorithm
+- 3-pane responsive UI: drop zone / pipeline builder / live preview with draggable divider
+- Fixed 3 critical bugs: infinite loop (useEffect deps), memory leaks (Vips heap), pad band mismatch
 
-## Next Steps
-1. Phase 2: Batch Processing — multi-file queue, virtualized list, sequential execution, ZIP/File-System-Access output.
-2. Deferred items from Phase 1 to revisit:
-   - Drag-to-reorder pipeline steps (currently arrow buttons) — planned for **Phase 6 polish**.
-   - SSIM target (0.97) and step size (5) are hard-coded — consider exposing in `app-settings` if users want to tune.
-   - Worker `AbortController` wiring exists in client but worker itself does not currently honor cancellation mid-pipeline — Phase 2 needs real cancel.
-   - wasm-vips double-chunking: Vite bundles `vips-es6.js` in both main and worker chunks. Main-thread chunk is only loaded if something triggers `getVips` on the main thread, which nothing does — but verify in Phase 6.
+**Commits:** a1aba87, acafb02, b1a0101 (all Opus 4.6)
+
+## Key Technical Decisions
+- **Web Worker requirement:** wasm-vips can block for seconds; off-thread processing is essential
+- **Explicit memory management:** Emscripten GC insufficient; all Vips images deleted deterministically
+- **SSIM for perceptual search:** 8×8 blocks, non-overlapping, sufficient for codec tuning without full implementation
+- **Typed worker protocol:** Discriminated unions enforce request/response symmetry; scales to Phase 2 batch + Phase 5 AI
+
+## Next Phase (Phase 2 — Batch Processing)
+From roadmap:
+1. Multi-file input + folder drag
+2. Virtualized batch queue UI
+3. Sequential worker loop
+4. Progress reporting + error recovery
+5. Batch preview (3–5 random samples)
+6. ZIP download (browser) or File System Access (Chromium)
+7. Tauri: native folder picker + recursive scan
+
+**Ready:** Batch store scaffolded, worker protocol extensible, dev tooling solid.
+
+## Known Deferred Items
+- Drag-to-reorder ops → Phase 6 (arrow buttons sufficient for MVP)
+- SSIM tuning (target 0.95, step 5) → may expose in app-settings if users request
+- Worker cancellation mid-pipeline → Phase 2 (plumbing in place, needs checkpoints)
+- Vite dual-bundle of vips-es6 → Phase 6 bundle audit
