@@ -36,10 +36,18 @@ async function loadVips(): Promise<VipsModule> {
   // Dynamic import so the ~5MB wasm bundle is only pulled inside the worker.
   const mod = await import('wasm-vips');
   const factory = (mod as { default?: unknown }).default ?? mod;
-  // factory is a function returning a Promise<VipsModule>.
+
+  // Resolve the .wasm asset through Vite so the dev server serves it with the
+  // correct MIME type (otherwise Emscripten gets index.html back from the SPA
+  // fallback and fails with a WebAssembly compile error).
+  const wasmUrl = (await import('wasm-vips/vips.wasm?url')).default;
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const vips = await (factory as any)({
-    // Let Emscripten resolve wasm assets relative to the worker script.
+    locateFile: (path: string) => {
+      if (path.endsWith('.wasm')) return wasmUrl;
+      return path;
+    },
     dynamicLibraries: [] as string[],
   });
   return vips;
