@@ -3,7 +3,7 @@
  *
  * Handles model loading, caching, and inference with automatic backend selection.
  *
- * See PIXEN_PROJECT_ROADMAP.md Section 5.3 for technical details.
+ * See docs/SPEC.md Section 5.3 for technical details.
  */
 
 export type BackendName = 'webgpu' | 'wasm-simd' | 'wasm-single-thread'

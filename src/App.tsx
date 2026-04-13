@@ -93,7 +93,7 @@ function App() {
 
         <div className="status">
           <p>Status: Scaffolding in progress</p>
-          <p>Read PIXEN_PROJECT_ROADMAP.md for full feature specification</p>
+          <p>Read docs/SPEC.md for full feature specification</p>
         </div>
       </main>
 

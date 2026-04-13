@@ -91,7 +91,7 @@ pixen/
 ├── tsconfig.json
 ├── vite.config.ts
 ├── .env.example
-├── PIXEN_PROJECT_ROADMAP.md      # Feature spec & architecture decisions
+├── docs/SPEC.md                  # Feature spec & architecture decisions
 ├── docs/
 │   ├── ARCHITECTURE.md           # Public architecture overview
 │   ├── CHANGELOG.md              # Version history
@@ -116,7 +116,7 @@ pixen/
 - **Settings** in `.claude/settings.json`
 
 ### Development Workflow
-1. Ask Claude to read [PIXEN_PROJECT_ROADMAP.md](../../PIXEN_PROJECT_ROADMAP.md) for the spec
+1. Ask Claude to read [docs/SPEC.md](../../docs/SPEC.md) for the spec
 2. Reference [docs/ARCHITECTURE.md](../ARCHITECTURE.md) for system design
 3. Check [.agent/context/tech-stack.md](.agent/context/tech-stack.md) for approved technologies
 

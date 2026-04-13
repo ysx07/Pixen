@@ -4,7 +4,7 @@
  * This module handles initialization and provides a typed interface
  * to wasm-vips for image processing operations.
  *
- * See PIXEN_PROJECT_ROADMAP.md Section 5.2 for technical details.
+ * See docs/SPEC.md Section 5.2 for technical details.
  */
 
 /**

@@ -1,6 +1,6 @@
 /**
  * Core type definitions for Pixen
- * See PIXEN_PROJECT_ROADMAP.md Section 7 for data model details
+ * See docs/SPEC.md Section 7 for data model details
  */
 
 /**
@@ -183,7 +183,7 @@ export interface GroupingRules {
 
 /**
  * Named, saved recipe
- * See PIXEN_PROJECT_ROADMAP.md Section 4.1
+ * See docs/SPEC.md Section 4.1
  */
 export interface Recipe {
   id: string // UUID
