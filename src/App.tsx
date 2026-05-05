@@ -1,14 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DropZone } from './components/DropZone';
 import { PipelineBuilder } from './components/PipelineBuilder';
 import { Preview } from './components/Preview';
 import { DeltaDisplay } from './components/DeltaDisplay';
+import { BatchQueue } from './components/BatchQueue';
+import { BatchControls } from './components/BatchControls';
+import { BatchSamplePreview } from './components/BatchSamplePreview';
+import type { SampleResult } from './components/BatchSamplePreview';
 import { usePipelineStore } from './stores/pipeline';
-import {
-  runPipeline,
-  useProcessingWorker,
-} from './hooks/useProcessingWorker';
+import { useBatchStore } from './stores/batch';
+import { runPipeline, useProcessingWorker } from './hooks/useProcessingWorker';
+import { useBatchProcessor } from './hooks/useBatchProcessor';
 import type { PipelineSuccess } from './workers/protocol';
+
+// ── Single-image state ────────────────────────────────────────────────────────
 
 interface InputState {
   file: File;
@@ -24,17 +29,35 @@ interface OutputState {
 }
 
 const PREVIEW_DEBOUNCE_MS = 200;
+const SAMPLE_COUNT = 3;
+
+// ── App ───────────────────────────────────────────────────────────────────────
 
 export default function App() {
   const { ready, error: workerError, threading } = useProcessingWorker();
   const { operations } = usePipelineStore();
+  const batchStore = useBatchStore();
 
+  // Mode
+  const [mode, setMode] = useState<'single' | 'batch'>('single');
+
+  // Single-image state
   const [input, setInput] = useState<InputState | null>(null);
   const [output, setOutput] = useState<OutputState | null>(null);
   const [processing, setProcessing] = useState(false);
-  const [progressLabel, setProgressLabel] = useState<string>('');
+  const [progressLabel, setProgressLabel] = useState('');
   const [runError, setRunError] = useState<string | null>(null);
   const runSeq = useRef(0);
+
+  // Batch state
+  const [keepOriginalNames, setKeepOriginalNames] = useState(true);
+  const [showSampleModal, setShowSampleModal] = useState(false);
+  const [samples, setSamples] = useState<SampleResult[]>([]);
+  const sampleUrlsRef = useRef<string[]>([]);
+
+  const { runBatch, cancelBatch, completedOutputs, isProcessing } = useBatchProcessor({
+    keepOriginalNames,
+  });
 
   const inputFormat = useMemo(() => {
     if (!input) return '';
@@ -42,27 +65,52 @@ export default function App() {
     return ext || 'image';
   }, [input]);
 
-  // Load an input file, probe dimensions via Image, create object URL.
-  const handleFile = (file: File) => {
-    if (input) URL.revokeObjectURL(input.url);
-    if (output) URL.revokeObjectURL(output.url);
-    setOutput(null);
-    setRunError(null);
-    const url = URL.createObjectURL(file);
-    const probe = new Image();
-    probe.onload = () => {
-      setInput({ file, url, width: probe.naturalWidth, height: probe.naturalHeight });
-    };
-    probe.onerror = () => {
-      setRunError('Could not decode image — file may be corrupted or unsupported.');
-      URL.revokeObjectURL(url);
-    };
-    probe.src = url;
-  };
+  // ── File input handler ──────────────────────────────────────────────────────
 
-  // Debounced auto-run on pipeline or input change.
-  // Note: do NOT depend on `output` — we mutate it inside and would loop forever.
+  const handleFiles = useCallback(
+    (files: File[]) => {
+      if (files.length === 1) {
+        // Single-image mode
+        setMode('single');
+        batchStore.clearBatch();
+        const file = files[0];
+        if (input) URL.revokeObjectURL(input.url);
+        if (output) URL.revokeObjectURL(output.url);
+        setOutput(null);
+        setRunError(null);
+        const url = URL.createObjectURL(file);
+        const probe = new Image();
+        probe.onload = () =>
+          setInput({ file, url, width: probe.naturalWidth, height: probe.naturalHeight });
+        probe.onerror = () => {
+          setRunError('Could not decode image — file may be corrupted or unsupported.');
+          URL.revokeObjectURL(url);
+        };
+        probe.src = url;
+      } else {
+        // Batch mode
+        setMode('batch');
+        if (input) {
+          URL.revokeObjectURL(input.url);
+          setInput(null);
+        }
+        if (output) {
+          URL.revokeObjectURL(output.url);
+          setOutput(null);
+        }
+        batchStore.clearBatch();
+        batchStore.addFiles(files);
+      }
+    },
+    // Intentionally exclude input/output to avoid stale closure; we read them via setInput callback
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  // ── Single-image debounced auto-run ────────────────────────────────────────
+
   useEffect(() => {
+    if (mode !== 'single') return;
     if (!ready || !input) return;
     if (operations.length === 0) {
       setOutput((prev) => {
@@ -78,9 +126,8 @@ export default function App() {
       try {
         const result = await runPipeline(input.file, operations, {
           onProgress: (p) => {
-            if (mySeq === runSeq.current) {
+            if (mySeq === runSeq.current)
               setProgressLabel(`${p.label} (${p.step}/${p.totalSteps})`);
-            }
           },
         });
         if (mySeq !== runSeq.current) return;
@@ -100,12 +147,12 @@ export default function App() {
         }
       }
     };
-    const timer = setTimeout(() => {
-      void run();
-    }, PREVIEW_DEBOUNCE_MS);
+    const timer = setTimeout(() => void run(), PREVIEW_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-    // output is intentionally excluded to avoid a re-run feedback loop.
-  }, [ready, input, operations]);
+    // output intentionally excluded — would cause feedback loop
+  }, [ready, input, operations, mode]);
+
+  // ── Single-image download ──────────────────────────────────────────────────
 
   const handleDownload = () => {
     if (!output) return;
@@ -115,8 +162,79 @@ export default function App() {
     a.click();
   };
 
+  // ── Batch: open sample preview modal ──────────────────────────────────────
+
+  const handlePreviewSamples = useCallback(async () => {
+    const { items, generatePreviewIndices } = useBatchStore.getState();
+    if (items.length === 0 || operations.length === 0) return;
+
+    generatePreviewIndices(SAMPLE_COUNT);
+    const { previewIndices } = useBatchStore.getState();
+    const sampleItems = previewIndices.map((i) => items[i]);
+
+    // Revoke previous sample URLs
+    sampleUrlsRef.current.forEach((u) => URL.revokeObjectURL(u));
+    sampleUrlsRef.current = [];
+
+    const initial: SampleResult[] = sampleItems.map((item) => {
+      const url = URL.createObjectURL(item.file);
+      sampleUrlsRef.current.push(url);
+      return { fileName: item.file.name, beforeUrl: url, afterUrl: null, processing: true, error: null };
+    });
+    setSamples(initial);
+    setShowSampleModal(true);
+
+    // Run pipeline on samples concurrently (they're small previews, fine to overlap)
+    await Promise.all(
+      sampleItems.map(async (item, idx) => {
+        try {
+          const result = await runPipeline(item.file, operations);
+          const blob = new Blob([result.output.buffer], { type: result.output.mimeType });
+          const afterUrl = URL.createObjectURL(blob);
+          sampleUrlsRef.current.push(afterUrl);
+          setSamples((prev) =>
+            prev.map((s, i) => (i === idx ? { ...s, afterUrl, processing: false } : s)),
+          );
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          setSamples((prev) =>
+            prev.map((s, i) => (i === idx ? { ...s, processing: false, error: msg } : s)),
+          );
+        }
+      }),
+    );
+  }, [operations]);
+
+  const handleSampleClose = useCallback(() => {
+    setShowSampleModal(false);
+  }, []);
+
+  const handleRunFullBatch = useCallback(async () => {
+    setShowSampleModal(false);
+    await runBatch(operations);
+  }, [operations, runBatch]);
+
+  // ── Batch: reset to drop zone ──────────────────────────────────────────────
+
+  const handleResetBatch = () => {
+    cancelBatch();
+    batchStore.clearBatch();
+    setMode('single');
+    setSamples([]);
+    sampleUrlsRef.current.forEach((u) => URL.revokeObjectURL(u));
+    sampleUrlsRef.current = [];
+  };
+
+  // ── Counts for BatchControls ──────────────────────────────────────────────
+
+  const completedCount = batchStore.items.filter((i) => i.status === 'completed').length;
+  const errorCount = batchStore.items.filter((i) => i.status === 'error').length;
+
+  // ── Render ────────────────────────────────────────────────────────────────
+
   return (
     <div className="flex h-full flex-col bg-cream text-taupe-900">
+      {/* Header */}
       <header className="flex items-center justify-between border-b border-taupe-200 px-6 py-3">
         <div>
           <h1 className="font-serif text-2xl leading-tight">Pixen</h1>
@@ -139,11 +257,16 @@ export default function App() {
         </div>
       </header>
 
+      {/* Main */}
       <main className="grid flex-1 grid-cols-12 gap-4 overflow-hidden p-4">
+
+        {/* Left pane — drop zone / file info / batch info */}
         <section className="col-span-3 flex flex-col gap-4 overflow-hidden">
-          {!input ? (
-            <DropZone onFile={handleFile} />
-          ) : (
+          {mode === 'single' && !input && (
+            <DropZone onFiles={handleFiles} />
+          )}
+
+          {mode === 'single' && input && (
             <>
               <div className="rounded-md border border-taupe-200 bg-taupe-50 p-3 text-xs">
                 <div className="truncate font-medium text-taupe-900" title={input.file.name}>
@@ -193,27 +316,74 @@ export default function App() {
               )}
             </>
           )}
+
+          {mode === 'batch' && (
+            <>
+              <div className="rounded-md border border-taupe-200 bg-taupe-50 p-3 text-xs">
+                <div className="font-medium text-taupe-900">
+                  {batchStore.items.length} image{batchStore.items.length !== 1 ? 's' : ''} queued
+                </div>
+                <button
+                  onClick={handleResetBatch}
+                  className="mt-1 text-taupe-600 underline hover:text-taupe-900"
+                >
+                  Clear & start over
+                </button>
+              </div>
+              <DropZone onFiles={handleFiles} />
+              <BatchControls
+                totalCount={batchStore.items.length}
+                completedCount={completedCount}
+                errorCount={errorCount}
+                isProcessing={isProcessing}
+                canRun={ready && operations.length > 0 && batchStore.items.length > 0}
+                keepOriginalNames={keepOriginalNames}
+                onKeepNamesChange={setKeepOriginalNames}
+                onPreviewSamples={() => void handlePreviewSamples()}
+                onCancel={cancelBatch}
+                outputs={completedOutputs}
+              />
+            </>
+          )}
         </section>
 
+        {/* Middle pane — pipeline builder */}
         <section className="col-span-4 overflow-hidden rounded-md border border-taupe-200 bg-cream p-4">
           <PipelineBuilder />
         </section>
 
+        {/* Right pane — preview (single) or batch queue (batch) */}
         <section className="col-span-5 overflow-hidden rounded-md border border-taupe-200 bg-cream p-4">
-          {input ? (
+          {mode === 'single' && input && (
             <Preview
               beforeUrl={input.url}
               afterUrl={output?.url ?? null}
               processing={processing}
               progressLabel={progressLabel}
             />
-          ) : (
+          )}
+          {mode === 'single' && !input && (
             <div className="flex h-full items-center justify-center text-sm text-taupe-500">
               Drop an image to begin.
             </div>
           )}
+          {mode === 'batch' && (
+            <BatchQueue
+              items={batchStore.items}
+              onRemove={(id) => batchStore.removeItem(id)}
+            />
+          )}
         </section>
       </main>
+
+      {/* Batch sample preview modal */}
+      {showSampleModal && (
+        <BatchSamplePreview
+          samples={samples}
+          onConfirm={() => void handleRunFullBatch()}
+          onClose={handleSampleClose}
+        />
+      )}
     </div>
   );
 }
