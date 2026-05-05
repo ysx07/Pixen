@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import type { Operation } from '../stores/pipeline';
 import { useBatchStore } from '../stores/batch';
-import { runPipeline } from './useProcessingWorker';
+import { runAiPipeline } from './useAiPipelineRunner';
 import type { ZipEntry } from '../utils/zip-download';
 import { FORMAT_EXT } from '../workers/protocol';
 
@@ -33,7 +33,7 @@ export function useBatchProcessor({ keepOriginalNames }: UseBatchProcessorOption
         setItemStatus(item.id, 'processing', 0);
 
         try {
-          const result = await runPipeline(item.file, operations, {
+          const result = await runAiPipeline(item.file, operations, {
             signal,
             onProgress: (p) => {
               const pct = Math.round((p.step / p.totalSteps) * 100);

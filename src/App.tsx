@@ -12,7 +12,8 @@ import { usePipelineStore } from './stores/pipeline';
 import { useBatchStore } from './stores/batch';
 import { useOrganizeStore } from './stores/organize';
 import { useRecipesStore } from './stores/recipes';
-import { runPipeline, useProcessingWorker } from './hooks/useProcessingWorker';
+import { useProcessingWorker } from './hooks/useProcessingWorker';
+import { runAiPipeline } from './hooks/useAiPipelineRunner';
 import { useBatchProcessor } from './hooks/useBatchProcessor';
 import type { PipelineSuccess } from './workers/protocol';
 import { organize, toGroupedZipEntries } from './utils/organize';
@@ -158,7 +159,7 @@ export default function App() {
       setProcessing(true);
       setRunError(null);
       try {
-        const result = await runPipeline(input.file, operations, {
+        const result = await runAiPipeline(input.file, operations, {
           onProgress: (p) => {
             if (mySeq === runSeq.current)
               setProgressLabel(`${p.label} (${p.step}/${p.totalSteps})`);
@@ -222,7 +223,7 @@ export default function App() {
     await Promise.all(
       sampleItems.map(async (item, idx) => {
         try {
-          const result = await runPipeline(item.file, operations);
+          const result = await runAiPipeline(item.file, operations);
           const blob = new Blob([result.output.buffer], { type: result.output.mimeType });
           const afterUrl = URL.createObjectURL(blob);
           sampleUrlsRef.current.push(afterUrl);

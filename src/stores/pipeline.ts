@@ -7,7 +7,7 @@ export type Operation =
   | { type: 'compress'; quality: number; perceptual: boolean }
   | { type: 'stripMetadata' }
   | { type: 'rename'; pattern: string }
-  | { type: 'background-removal' }
+  | { type: 'background-removal'; threshold?: number }
   | { type: 'upscale'; scale: 2 | 4 };
 
 export interface PipelineState {

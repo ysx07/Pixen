@@ -11,8 +11,8 @@ const OPERATION_LABELS: Record<Operation['type'], string> = {
   compress: 'Compress',
   stripMetadata: 'Strip Metadata',
   rename: 'Rename',
-  'background-removal': 'Remove Background (P5)',
-  upscale: 'Upscale (P5)',
+  'background-removal': 'Remove Background (AI)',
+  upscale: 'Upscale (AI)',
 };
 
 function defaultOperation(type: Operation['type']): Operation {

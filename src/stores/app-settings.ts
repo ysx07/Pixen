@@ -1,11 +1,16 @@
 import { create } from 'zustand';
 
+export type BgRemovalModelChoice = 'imgly-isnet' | 'rmbg-1.4-fp16';
+
 export interface AppSettings {
   previewSampleCount: number; // How many images to preview before batch run
   maxBatchWebSize: number; // Max batch size warning for web (images)
   maxBatchDesktopSize: number; // Max batch size for desktop (images)
-  enableGPU: boolean; // Use GPU for AI ops if available
+  enableGPU: boolean; // Use GPU (WebGPU) for AI ops when available
   autoPreview: boolean; // Auto-generate preview on file upload
+  bgRemovalModel: BgRemovalModelChoice; // Which background-removal model to use
+  rmbgLicenseAcknowledged: boolean; // User has confirmed RMBG-1.4 non-commercial license
+  // Future: precisionMode: 'fp16' | 'fp32' — surface fp32 RMBG when bandwidth permits.
 }
 
 export interface AppSettingsState {
@@ -22,6 +27,8 @@ const defaultSettings: AppSettings = {
   maxBatchDesktopSize: 1000,
   enableGPU: true,
   autoPreview: true,
+  bgRemovalModel: 'imgly-isnet',
+  rmbgLicenseAcknowledged: false,
 };
 
 export const useAppSettingsStore = create<AppSettingsState>((set, get) => ({

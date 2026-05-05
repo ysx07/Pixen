@@ -1,4 +1,5 @@
 import type { Operation } from '../stores/pipeline';
+import { useAppSettingsStore } from '../stores/app-settings';
 
 interface OperationEditorProps {
   operation: Operation;
@@ -6,6 +7,7 @@ interface OperationEditorProps {
 }
 
 export function OperationEditor({ operation, onChange }: OperationEditorProps) {
+  const { settings, updateSetting } = useAppSettingsStore();
   switch (operation.type) {
     case 'resize':
       return (
@@ -191,11 +193,96 @@ export function OperationEditor({ operation, onChange }: OperationEditorProps) {
       );
 
     case 'background-removal':
+      return (
+        <div className="space-y-2">
+          <label className="block text-xs">
+            <span className="text-taupe-700">Model</span>
+            <select
+              className="mt-0.5 w-full"
+              value={settings.bgRemovalModel}
+              onChange={(e) => {
+                const value = e.currentTarget.value as typeof settings.bgRemovalModel;
+                updateSetting('bgRemovalModel', value);
+              }}
+            >
+              <option value="imgly-isnet">IS-Net (default, AGPL-3.0)</option>
+              <option
+                value="rmbg-1.4-fp16"
+                disabled={!settings.rmbgLicenseAcknowledged}
+              >
+                RMBG-1.4 (advanced, non-commercial)
+              </option>
+            </select>
+          </label>
+          {!settings.rmbgLicenseAcknowledged && (
+            <label className="flex items-start gap-2 text-xs text-taupe-600">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={settings.rmbgLicenseAcknowledged}
+                onChange={(e) =>
+                  updateSetting('rmbgLicenseAcknowledged', e.currentTarget.checked)
+                }
+              />
+              <span>
+                Enable RMBG-1.4: I understand this model is{' '}
+                <strong>non-commercial use only</strong> and accept responsibility for
+                license compliance.
+              </span>
+            </label>
+          )}
+          <label className="flex items-center gap-2 text-xs text-taupe-700">
+            <input
+              type="checkbox"
+              checked={settings.enableGPU}
+              onChange={(e) => updateSetting('enableGPU', e.currentTarget.checked)}
+            />
+            Prefer WebGPU when available
+          </label>
+          <p className="text-[11px] text-taupe-500">
+            Output is PNG with transparent background. First run downloads the model
+            (~45–84MB) and caches it.
+          </p>
+          <input
+            type="hidden"
+            value={operation.threshold ?? ''}
+            onChange={() => onChange(operation)}
+          />
+        </div>
+      );
+
     case 'upscale':
       return (
-        <p className="text-xs text-warning">
-          Available in Phase 5 — this operation will be skipped.
-        </p>
+        <div className="space-y-2">
+          <label className="block text-xs">
+            <span className="text-taupe-700">Scale</span>
+            <select
+              className="mt-0.5 w-full"
+              value={String(operation.scale)}
+              onChange={(e) =>
+                onChange({
+                  ...operation,
+                  scale: Number(e.currentTarget.value) as 2 | 4,
+                })
+              }
+            >
+              <option value="2">2× (downsampled from 4×)</option>
+              <option value="4">4× (native model output)</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-2 text-xs text-taupe-700">
+            <input
+              type="checkbox"
+              checked={settings.enableGPU}
+              onChange={(e) => updateSetting('enableGPU', e.currentTarget.checked)}
+            />
+            Prefer WebGPU when available
+          </label>
+          <p className="text-[11px] text-taupe-500">
+            Real-ESRGAN general x4 v3. Tiled inference runs at 256px tiles with feathered
+            seams. Sequential — one image at a time.
+          </p>
+        </div>
       );
   }
 }
