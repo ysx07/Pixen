@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { usePipelineStore, type Operation } from '../stores/pipeline';
 import { OperationEditor } from './OperationEditor';
 import { OrganizePanel } from './OrganizePanel';
+import { RecipeLibrary } from './RecipeLibrary';
 
 const OPERATION_LABELS: Record<Operation['type'], string> = {
   resize: 'Resize',
@@ -47,16 +48,25 @@ interface PipelineBuilderProps {
   showOrganize?: boolean;
 }
 
+type PipelineView = 'pipeline' | 'library'
+
 export function PipelineBuilder({ showOrganize = false }: PipelineBuilderProps) {
   const { operations, addOperation, removeOperation, updateOperation, moveOperation, clearPipeline } =
     usePipelineStore();
   const [adding, setAdding] = useState(false);
+  const [view, setView] = useState<PipelineView>('pipeline');
 
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-taupe-200 pb-2">
         <h3 className="font-serif text-xl text-taupe-900">Pipeline</h3>
         <div className="flex gap-2">
+          <button
+            onClick={() => setView('library')}
+            className="rounded-md border border-taupe-300 px-3 py-1 text-xs text-taupe-700 hover:bg-taupe-100"
+          >
+            Recipes
+          </button>
           <button
             onClick={() => setAdding((v) => !v)}
             className="rounded-md bg-sage-700 px-3 py-1 text-xs font-medium text-cream hover:bg-sage-800"
@@ -74,80 +84,86 @@ export function PipelineBuilder({ showOrganize = false }: PipelineBuilderProps) 
         </div>
       </div>
 
-      {adding && (
-        <div className="mt-2 grid grid-cols-2 gap-1 rounded-md border border-taupe-200 bg-taupe-50 p-2">
-          {(Object.keys(OPERATION_LABELS) as Operation['type'][]).map((t) => (
-            <button
-              key={t}
-              onClick={() => {
-                addOperation(defaultOperation(t));
-                setAdding(false);
-              }}
-              className="rounded px-2 py-1 text-left text-xs text-taupe-800 hover:bg-cream"
-            >
-              {OPERATION_LABELS[t]}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <div className="mt-3 flex-1 space-y-2 overflow-y-auto">
-        {operations.length === 0 && (
-          <p className="mt-4 text-center text-sm text-taupe-500">
-            No operations. Add one to get started.
-          </p>
-        )}
-        {operations.map((op, idx) => (
-          <div
-            key={idx}
-            className="rounded-md border border-taupe-200 bg-cream p-3 shadow-sm"
-          >
-            <div className="mb-2 flex items-center justify-between">
-              <span className="font-medium text-taupe-900">
-                {idx + 1}. {OPERATION_LABELS[op.type]}
-              </span>
-              <div className="flex items-center gap-1">
+      {view === 'library' ? (
+        <RecipeLibrary onClose={() => setView('pipeline')} />
+      ) : (
+        <>
+          {adding && (
+            <div className="mt-2 grid grid-cols-2 gap-1 rounded-md border border-taupe-200 bg-taupe-50 p-2">
+              {(Object.keys(OPERATION_LABELS) as Operation['type'][]).map((t) => (
                 <button
-                  disabled={idx === 0}
-                  onClick={() => moveOperation(idx, idx - 1)}
-                  className="rounded px-1 text-taupe-600 hover:bg-taupe-100 disabled:opacity-30"
-                  title="Move up"
+                  key={t}
+                  onClick={() => {
+                    addOperation(defaultOperation(t));
+                    setAdding(false);
+                  }}
+                  className="rounded px-2 py-1 text-left text-xs text-taupe-800 hover:bg-cream"
                 >
-                  ↑
+                  {OPERATION_LABELS[t]}
                 </button>
-                <button
-                  disabled={idx === operations.length - 1}
-                  onClick={() => moveOperation(idx, idx + 1)}
-                  className="rounded px-1 text-taupe-600 hover:bg-taupe-100 disabled:opacity-30"
-                  title="Move down"
-                >
-                  ↓
-                </button>
-                <button
-                  onClick={() => removeOperation(idx)}
-                  className="rounded px-1 text-error hover:bg-taupe-100"
-                  title="Remove"
-                >
-                  ✕
-                </button>
-              </div>
+              ))}
             </div>
-            <OperationEditor
-              operation={op}
-              onChange={(updated) => updateOperation(idx, updated)}
-            />
-          </div>
-        ))}
+          )}
 
-        {showOrganize && (
-          <div className="mt-2 border-t border-taupe-200 pt-3">
-            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-taupe-500">
-              Organize
-            </p>
-            <OrganizePanel />
+          <div className="mt-3 flex-1 space-y-2 overflow-y-auto">
+            {operations.length === 0 && (
+              <p className="mt-4 text-center text-sm text-taupe-500">
+                No operations. Add one to get started.
+              </p>
+            )}
+            {operations.map((op, idx) => (
+              <div
+                key={idx}
+                className="rounded-md border border-taupe-200 bg-cream p-3 shadow-sm"
+              >
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="font-medium text-taupe-900">
+                    {idx + 1}. {OPERATION_LABELS[op.type]}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      disabled={idx === 0}
+                      onClick={() => moveOperation(idx, idx - 1)}
+                      className="rounded px-1 text-taupe-600 hover:bg-taupe-100 disabled:opacity-30"
+                      title="Move up"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      disabled={idx === operations.length - 1}
+                      onClick={() => moveOperation(idx, idx + 1)}
+                      className="rounded px-1 text-taupe-600 hover:bg-taupe-100 disabled:opacity-30"
+                      title="Move down"
+                    >
+                      ↓
+                    </button>
+                    <button
+                      onClick={() => removeOperation(idx)}
+                      className="rounded px-1 text-error hover:bg-taupe-100"
+                      title="Remove"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+                <OperationEditor
+                  operation={op}
+                  onChange={(updated) => updateOperation(idx, updated)}
+                />
+              </div>
+            ))}
+
+            {showOrganize && (
+              <div className="mt-2 border-t border-taupe-200 pt-3">
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-taupe-500">
+                  Organize
+                </p>
+                <OrganizePanel />
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 }

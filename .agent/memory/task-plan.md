@@ -1,79 +1,102 @@
 # Task Plan
 
 ## Current Phase
-Phase 3: Organization & Grouping — **COMPLETE**
-Phase 4: Recipe System — **pending (next)**
+Phase 4: Recipe System — **COMPLETE**
+Phase 5: AI Features — **next**
 
 ---
 
-## Phase 3 Decisions (archived)
-- OrganizeConfig in its own Zustand store (not part of pipeline ops)
-- EXIF reads lazy at organize time, from item.file (original not output)
-- OrganizePanel at bottom of PipelineBuilder as terminal section
-- OrganizePreview in left pane after batch completes
-- Combined mode = date-then-size (implemented — it is the origin story scenario)
-- Single-level folder paths only (`2024-03` not `2024/2024-03`)
+## Phase 4 Decisions (archived)
+- RecipeLibrary as inline toggle view inside PipelineBuilder (no modals)
+- Zustand `persist` middleware replaces manual localStorage
+- Store-local `Recipe` type (superset of `types/index.ts`) — avoids inverting dependency direction
+- `btoa(encodeURIComponent(json))` for safe Unicode URL encoding
+- `preset-*` ID prefix routes export/share inline without hitting the store
+- `loadRecipeIntoPipeline` as a store action for cross-store coordination
 
 ---
 
-## Phase 4: Recipe System
+## Phase 5: AI Features
 
-**Goal:** Pipelines are reusable, saveable, and shareable.
+**Goal:** Background removal and upscaling running client-side with proper UX.
 
-**Complexity:** Low — Haiku 4.5 recommended (CRUD, JSON schema, URL encoding — no novel algorithms)
+**Complexity:** Very High — **Recommended model: Opus 4.6**
 
-**Exit criteria:** A user can save their Instagram preset recipe, export it as JSON, and a different user can import it and run it.
+**Exit criteria:** A user can add background removal to their pipeline, see the model download once with progress, and process a batch of 20 images with clear per-image progress. On a device without WebGPU, the fallback path works with an honest timing warning.
 
-### Key entry points
-- `src/stores/recipes.ts` — scaffolded in Phase 0, needs implementing
-- `src/types/index.ts` `Recipe` interface — ready (`id`, `name`, `version`, `created`, `operations`, `organize?`)
-- Storage: `localStorage` for web (key `pixen_recipes`), JSON serialization only
-- No new worker types needed
+---
+
+### Decision to make FIRST (before writing code)
+
+**Background removal model — SPEC §6.1 Option A vs B:**
+- Option A: `briaai/RMBG-1.4` — 176MB ONNX model, high quality, needs download + IndexedDB cache
+- Option B: `mediapipe` selfie segmentation — 2MB, lower quality, different API (not ONNX)
+
+Evaluate VRAM requirements and WebGPU support surface for RMBG-1.4 before committing. If WebGPU is unavailable on most target devices, Option B may produce better perceived performance at lower quality.
+
+---
+
+### Architecture: Separate AI Worker
+
+The existing `src/workers/processing-worker.ts` runs wasm-vips. AI ops must run in a **separate** `src/workers/ai-worker.ts` — ONNX Runtime and wasm-vips both have large WASM heaps and should not share a worker scope.
+
+The existing worker already receives `background-removal` and `upscale` op types via the protocol — they are currently no-ops/stubs. Phase 5 routes them out of the vips worker and into the AI worker.
+
+---
 
 ### Tasks
 
-#### Storage / CRUD
-- [ ] Implement `src/stores/recipes.ts` — `recipes: Recipe[]`, `save`, `load`, `delete`, `duplicate`, `import`, `export` actions; persistence via `localStorage` using `zustand/middleware` persist
+#### Infrastructure
+- [ ] Install `onnxruntime-web` (confirm version — 1.20+ has breaking API changes)
+- [ ] Create `src/workers/ai-worker.ts` — ONNX InferenceSession lifecycle, message handling
+- [ ] Extend `src/workers/protocol.ts` — AI worker message types (load model, run inference, progress, cancel)
+- [ ] `src/hooks/useAiWorker.ts` — hook for AI worker communication (parallel to `useProcessingWorker`)
 
-#### Built-in presets
-- [ ] Define 5 presets in `src/utils/recipe-presets.ts`:
-  - Instagram 1:1 — resize 1080×1080 cover + compress perceptual web-optimized + convert webp
-  - Shopify Product — resize 2000×2000 contain + pad white + compress perceptual + convert jpeg
-  - Twitter/X Post — resize 1200×675 cover + compress perceptual + convert jpeg
-  - Web General — convert webp + compress perceptual web-optimized
-  - Archive — convert png + strip metadata (lossless)
+#### Model download & caching
+- [ ] `src/utils/model-cache.ts` — IndexedDB read/write for ONNX model ArrayBuffers; key by model name + version
+- [ ] Download-with-progress UI: "Downloading model (47 MB)..." inline in operation editor on first use
+- [ ] "This only happens once" messaging
 
-#### Recipe validation
-- [ ] `src/utils/recipe-schema.ts` — JSON schema validator (lightweight, manual check — no ajv dep needed for Phase 4); validates `version`, `operations[]` each have known `type`
+#### Background removal
+- [ ] Select model (RMBG-1.4 or mediapipe — decide at Phase 5 start)
+- [ ] Implement inference in `ai-worker.ts`: load model → preprocess image → run session → postprocess mask → composite
+- [ ] `OperationEditor` case for `background-removal`: model name display, threshold slider (if applicable)
+- [ ] Sequential AI job queue — never run two ONNX sessions in parallel (VRAM safety)
+- [ ] Cancel support — check `AbortSignal` between vips step and AI step
 
-#### Import / Export
-- [ ] Export: serialize `Recipe` to JSON and trigger download (`recipe-name.json`)
-- [ ] Import: file input → JSON parse → schema validate → add to store; show inline error on bad schema
-- [ ] URL encode: `btoa(JSON.stringify(recipe))` → `?recipe=<base64>` query param; load on mount if present
+#### Upscaling
+- [ ] Model: `realesr-general-x4v3` (~5MB) from ONNX export
+- [ ] Spatial tiling — mandatory: split image into overlapping tiles, run inference per tile, stitch
+- [ ] `OperationEditor` case for `upscale`: scale factor picker (2× / 4×)
+- [ ] Desktop-only note in web UI for the larger 4× model (67MB `x4plus`)
 
-#### UI
-- [ ] `src/components/RecipeLibrary.tsx` — drawer or panel; recipe list with: name, op summary, tags; Load / Delete / Duplicate / Export buttons per item
-- [ ] `src/components/RecipeCard.tsx` — compact card showing op icons/labels at a glance, platform tag
-- [ ] "Save as recipe" button in PipelineBuilder header — opens a name input dialog, saves to store
-- [ ] "Recipes" button to open RecipeLibrary panel
-- [ ] Import recipe button (file input, hidden `<input type="file">`)
-- [ ] "Share recipe" button — copies URL with encoded recipe to clipboard
+#### Hardware detection
+- [ ] Detect WebGPU availability on app load (`navigator.gpu !== undefined`)
+- [ ] Detect WASM SIMD support
+- [ ] Store detected backend in `src/stores/app-settings.ts`
+- [ ] Show detected backend in UI ("Running on WebGPU" / "Running on WASM — expect slower inference")
+- [ ] WebGPU → WASM fallback chain: attempt WebGPU session, catch and retry with WASM on failure
 
-#### Wire up
-- [ ] `src/App.tsx` — on mount, check `?recipe=` query param and load if valid; wire RecipeLibrary open/close
+#### Pipeline integration
+- [ ] `src/workers/processing-worker.ts`: intercept `background-removal` + `upscale` op types, dispatch to AI worker instead of vips
+- [ ] Add cooperative cancellation checkpoint between vips step and AI step
+- [ ] Progress reporting per AI op in batch (e.g., "Background removal: 3/20")
+
+---
 
 ### Files to create
 | File | Purpose |
 |------|---------|
-| `src/utils/recipe-presets.ts` | 5 built-in platform presets |
-| `src/utils/recipe-schema.ts` | Lightweight recipe JSON validator |
-| `src/components/RecipeLibrary.tsx` | Full recipe list panel/drawer |
-| `src/components/RecipeCard.tsx` | Compact recipe card |
+| `src/workers/ai-worker.ts` | ONNX Runtime session, model load/cache, tiling, inference |
+| `src/hooks/useAiWorker.ts` | React hook for AI worker communication |
+| `src/utils/model-cache.ts` | IndexedDB model caching (download once) |
 
 ### Files to modify
 | File | Change |
 |------|--------|
-| `src/stores/recipes.ts` | Implement full CRUD + persist |
-| `src/components/PipelineBuilder.tsx` | "Save as recipe" + "Recipes" buttons in header |
-| `src/App.tsx` | URL param loading on mount, RecipeLibrary wiring |
-| `package.json` | No new deps expected |
+| `src/workers/processing-worker.ts` | Route AI ops to AI worker; add cancel checkpoint |
+| `src/workers/protocol.ts` | Add AI worker message types |
+| `src/components/OperationEditor.tsx` | Add editor panels for `background-removal` + `upscale` |
+| `src/stores/app-settings.ts` | Add `detectedBackend`, `backendFallbackReason` |
+| `src/App.tsx` | Hardware detection on mount; render backend badge in UI |
+| `package.json` | Add `onnxruntime-web` |

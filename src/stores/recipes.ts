@@ -1,108 +1,142 @@
-import { create } from 'zustand';
-import { Operation } from './pipeline';
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+import type { Operation } from './pipeline'
+import type { OrganizeConfig } from '../types'
+import { validateRecipeSchema } from '../utils/recipe-schema'
+import { usePipelineStore } from './pipeline'
+import { useOrganizeStore } from './organize'
 
 export interface Recipe {
-  id: string;
-  name: string;
-  description?: string;
-  operations: Operation[];
-  platform?: 'instagram' | 'shopify' | 'twitter' | 'linkedin' | 'web' | 'archive';
-  createdAt: number;
-  updatedAt: number;
+  id: string
+  name: string
+  version: number
+  created: string // ISO 8601
+  updatedAt: number
+  description?: string
+  operations: Operation[]
+  organize?: OrganizeConfig
+  platform?: 'instagram' | 'shopify' | 'twitter' | 'web' | 'archive'
 }
 
 export interface RecipesState {
-  recipes: Recipe[];
-  addRecipe: (recipe: Omit<Recipe, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateRecipe: (id: string, updates: Partial<Omit<Recipe, 'id' | 'createdAt'>>) => void;
-  deleteRecipe: (id: string) => void;
-  getRecipe: (id: string) => Recipe | undefined;
-  exportRecipe: (id: string) => string;
-  importRecipe: (json: string) => Recipe | null;
-  loadFromLocalStorage: () => void;
-  saveToLocalStorage: () => void;
+  recipes: Recipe[]
+  addRecipe: (recipe: Omit<Recipe, 'id' | 'version' | 'created' | 'updatedAt'>) => Recipe
+  updateRecipe: (id: string, updates: Partial<Omit<Recipe, 'id' | 'version' | 'created'>>) => void
+  deleteRecipe: (id: string) => void
+  duplicateRecipe: (id: string) => Recipe | null
+  getRecipe: (id: string) => Recipe | undefined
+  exportRecipe: (id: string) => string
+  importRecipe: (json: string) => { recipe: Recipe | null; errors: string[] }
+  loadRecipeIntoPipeline: (id: string) => void
 }
 
-export const useRecipesStore = create<RecipesState>((set, get) => ({
-  recipes: [],
+export const useRecipesStore = create<RecipesState>()(
+  persist(
+    (set, get) => ({
+      recipes: [],
 
-  addRecipe: (recipe) => {
-    const now = Date.now();
-    const newRecipe: Recipe = {
-      ...recipe,
-      id: `recipe-${now}`,
-      createdAt: now,
-      updatedAt: now,
-    };
-    set((state) => ({
-      recipes: [...state.recipes, newRecipe],
-    }));
-    get().saveToLocalStorage();
-  },
+      addRecipe: (recipe) => {
+        const newRecipe: Recipe = {
+          ...recipe,
+          id: crypto.randomUUID(),
+          version: 1,
+          created: new Date().toISOString(),
+          updatedAt: Date.now(),
+        }
+        set((state) => ({
+          recipes: [...state.recipes, newRecipe],
+        }))
+        return newRecipe
+      },
 
-  updateRecipe: (id, updates) =>
-    set((state) => ({
-      recipes: state.recipes.map((recipe) =>
-        recipe.id === id
-          ? {
-              ...recipe,
-              ...updates,
-              updatedAt: Date.now(),
-            }
-          : recipe
-      ),
-    })),
+      updateRecipe: (id, updates) => {
+        set((state) => ({
+          recipes: state.recipes.map((recipe) =>
+            recipe.id === id
+              ? {
+                  ...recipe,
+                  ...updates,
+                  updatedAt: Date.now(),
+                }
+              : recipe
+          ),
+        }))
+      },
 
-  deleteRecipe: (id) => {
-    set((state) => ({
-      recipes: state.recipes.filter((recipe) => recipe.id !== id),
-    }));
-    get().saveToLocalStorage();
-  },
+      deleteRecipe: (id) => {
+        set((state) => ({
+          recipes: state.recipes.filter((recipe) => recipe.id !== id),
+        }))
+      },
 
-  getRecipe: (id) => {
-    return get().recipes.find((recipe) => recipe.id === id);
-  },
+      duplicateRecipe: (id) => {
+        const recipe = get().getRecipe(id)
+        if (!recipe) return null
+        return get().addRecipe({
+          name: `${recipe.name} (copy)`,
+          description: recipe.description,
+          operations: recipe.operations,
+          organize: recipe.organize,
+          platform: recipe.platform,
+        })
+      },
 
-  exportRecipe: (id) => {
-    const recipe = get().getRecipe(id);
-    if (!recipe) throw new Error('Recipe not found');
-    return JSON.stringify(recipe, null, 2);
-  },
+      getRecipe: (id) => {
+        return get().recipes.find((recipe) => recipe.id === id)
+      },
 
-  importRecipe: (json) => {
-    try {
-      const recipe = JSON.parse(json) as Recipe;
-      // Validate basic structure
-      if (!recipe.name || !Array.isArray(recipe.operations)) {
-        return null;
-      }
-      return recipe;
-    } catch {
-      return null;
+      exportRecipe: (id) => {
+        const recipe = get().getRecipe(id)
+        if (!recipe) throw new Error('Recipe not found')
+        return JSON.stringify(recipe, null, 2)
+      },
+
+      importRecipe: (json) => {
+        try {
+          const parsed = JSON.parse(json) as Record<string, unknown>
+          const validation = validateRecipeSchema(parsed)
+
+          if (!validation.valid) {
+            return { recipe: null, errors: validation.errors }
+          }
+
+          const newRecipe = get().addRecipe({
+            name: parsed.name as string,
+            description: parsed.description as string | undefined,
+            operations: parsed.operations as Operation[],
+            organize: parsed.organize as OrganizeConfig | undefined,
+            platform: parsed.platform as 'instagram' | 'shopify' | 'twitter' | 'web' | 'archive' | undefined,
+          })
+
+          return { recipe: newRecipe, errors: [] }
+        } catch (err) {
+          return {
+            recipe: null,
+            errors: [err instanceof Error ? err.message : 'Failed to parse JSON'],
+          }
+        }
+      },
+
+      loadRecipeIntoPipeline: (id) => {
+        const recipe = get().getRecipe(id)
+        if (!recipe) return
+
+        // Clear current pipeline and load recipe operations
+        usePipelineStore.getState().clearPipeline()
+        recipe.operations.forEach((op) => {
+          usePipelineStore.getState().addOperation(op)
+        })
+
+        // Load organize config if present
+        if (recipe.organize) {
+          useOrganizeStore.setState({ config: recipe.organize })
+        }
+      },
+    }),
+    {
+      name: 'pixen-recipes',
+      partialize: (state) => ({ recipes: state.recipes }),
+      version: 1,
     }
-  },
-
-  loadFromLocalStorage: () => {
-    if (typeof window === 'undefined') return;
-    try {
-      const stored = localStorage.getItem('pixen-recipes');
-      if (stored) {
-        const recipes = JSON.parse(stored) as Recipe[];
-        set({ recipes });
-      }
-    } catch (error) {
-      console.error('Failed to load recipes from localStorage:', error);
-    }
-  },
-
-  saveToLocalStorage: () => {
-    if (typeof window === 'undefined') return;
-    try {
-      const recipes = get().recipes;
-      localStorage.setItem('pixen-recipes', JSON.stringify(recipes));
-    } catch (error) {
-      console.error('Failed to save recipes to localStorage:', error);
-    }
-  },
-}));
+  )
+)

@@ -11,6 +11,7 @@ import type { SampleResult } from './components/BatchSamplePreview';
 import { usePipelineStore } from './stores/pipeline';
 import { useBatchStore } from './stores/batch';
 import { useOrganizeStore } from './stores/organize';
+import { useRecipesStore } from './stores/recipes';
 import { runPipeline, useProcessingWorker } from './hooks/useProcessingWorker';
 import { useBatchProcessor } from './hooks/useBatchProcessor';
 import type { PipelineSuccess } from './workers/protocol';
@@ -75,6 +76,28 @@ export default function App() {
     const ext = input.file.name.toLowerCase().split('.').pop() ?? '';
     return ext || 'image';
   }, [input]);
+
+  // ── URL recipe loading ──────────────────────────────────────────────────────
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const encoded = params.get('recipe');
+    if (!encoded) return;
+    try {
+      const json = decodeURIComponent(atob(encoded));
+      const { recipe, errors } = useRecipesStore.getState().importRecipe(json);
+      if (recipe) {
+        useRecipesStore.getState().loadRecipeIntoPipeline(recipe.id);
+        const url = new URL(window.location.href);
+        url.searchParams.delete('recipe');
+        window.history.replaceState({}, '', url.toString());
+      } else {
+        console.warn('URL recipe failed validation:', errors);
+      }
+    } catch {
+      // malformed base64 — silently ignore
+    }
+  }, []);
 
   // ── File input handler ──────────────────────────────────────────────────────
 

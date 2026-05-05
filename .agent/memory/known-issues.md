@@ -17,3 +17,7 @@
 | OrganizePanel has no Apply button — recomputes on every setting change | Low | Fast enough for typical batches; can feel spammy on slow devices | Add 300ms debounce or explicit Apply button in Phase 6 polish |
 | No unit tests for grouping utilities (group-by-date, group-by-pattern, group-by-size) | Low | Manual testing done | Phase 6 test pass |
 | exifr: files with no EXIF and no `lastModified` get epoch date (1970) as fallback | Low | Edge case (synthetic File objects); real files always have lastModified | Acceptable for MVP |
+| Clicking "Recipes" while "+ Add operation" picker is open leaves `adding: true` in hidden view | Low | Picker reappears open when returning to pipeline view | Set `setAdding(false)` before switching to library view — one-line fix |
+| No unit tests for `recipe-schema.ts` validator or `stores/recipes.ts` store actions | Low | Manual testing done | Phase 6 test pass |
+| Share URL embeds full recipe JSON — very long pipelines (10+ ops) produce ~600–800 char URLs | Low | Acceptable for MVP | Use `CompressionStream` + base64 if needed |
+| Recipe `organize?` field preserves full config but does not reset organize store to `mode: 'none'` when loading a recipe without organize | Low | User's existing organize settings are preserved on recipe load | Acceptable for MVP; add explicit reset if users request it |
