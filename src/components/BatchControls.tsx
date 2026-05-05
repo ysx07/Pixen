@@ -1,6 +1,6 @@
-import type { ZipEntry } from '../utils/zip-download';
-import { downloadZip } from '../utils/zip-download';
-import { isFsAccessSupported, saveToFolder } from '../utils/fs-access';
+import type { ZipEntry, GroupedZipEntries } from '../utils/zip-download';
+import { downloadZip, downloadGroupedZip } from '../utils/zip-download';
+import { isFsAccessSupported, saveToFolder, saveGroupedToFolder } from '../utils/fs-access';
 
 interface BatchControlsProps {
   totalCount: number;
@@ -13,6 +13,7 @@ interface BatchControlsProps {
   onPreviewSamples: () => void;
   onCancel: () => void;
   outputs: ZipEntry[];
+  organizeGroups?: GroupedZipEntries | null;
 }
 
 export function BatchControls({
@@ -26,6 +27,7 @@ export function BatchControls({
   onPreviewSamples,
   onCancel,
   outputs,
+  organizeGroups,
 }: BatchControlsProps) {
   const pct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
   const isDone = !isProcessing && completedCount + errorCount === totalCount && totalCount > 0;
@@ -80,22 +82,45 @@ export function BatchControls({
           </button>
         )}
 
-        {isDone && outputs.length > 0 && (
+        {isDone && (organizeGroups ?? outputs.length > 0) && (
           <div className="flex gap-2">
-            {isFsAccessSupported() && (
-              <button
-                onClick={() => void saveToFolder(outputs)}
-                className="flex-1 rounded-md border border-taupe-300 bg-cream px-3 py-2 text-sm font-medium text-taupe-800 hover:bg-taupe-100"
-              >
-                Save to folder
-              </button>
+            {organizeGroups ? (
+              <>
+                {isFsAccessSupported() && (
+                  <button
+                    onClick={() => void saveGroupedToFolder(organizeGroups)}
+                    className="flex-1 rounded-md border border-taupe-300 bg-cream px-3 py-2 text-sm font-medium text-taupe-800 hover:bg-taupe-100"
+                  >
+                    Save organized
+                  </button>
+                )}
+                <button
+                  onClick={() => downloadGroupedZip(organizeGroups)}
+                  className="flex-1 rounded-md bg-taupe-900 px-3 py-2 text-sm font-medium text-cream hover:bg-taupe-800"
+                >
+                  Download ZIP
+                </button>
+              </>
+            ) : (
+              outputs.length > 0 && (
+                <>
+                  {isFsAccessSupported() && (
+                    <button
+                      onClick={() => void saveToFolder(outputs)}
+                      className="flex-1 rounded-md border border-taupe-300 bg-cream px-3 py-2 text-sm font-medium text-taupe-800 hover:bg-taupe-100"
+                    >
+                      Save to folder
+                    </button>
+                  )}
+                  <button
+                    onClick={() => downloadZip(outputs)}
+                    className="flex-1 rounded-md bg-taupe-900 px-3 py-2 text-sm font-medium text-cream hover:bg-taupe-800"
+                  >
+                    Download ZIP
+                  </button>
+                </>
+              )
             )}
-            <button
-              onClick={() => downloadZip(outputs)}
-              className="flex-1 rounded-md bg-taupe-900 px-3 py-2 text-sm font-medium text-cream hover:bg-taupe-800"
-            >
-              Download ZIP
-            </button>
           </div>
         )}
       </div>

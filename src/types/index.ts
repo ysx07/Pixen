@@ -148,38 +148,39 @@ export interface Pipeline {
 }
 
 /**
- * Organization/grouping configuration
+ * Organization/grouping mode
+ */
+export type OrganizeMode = 'none' | 'date' | 'name_pattern' | 'size_limit' | 'combined'
+
+/**
+ * Organization/grouping configuration (spec §7.3)
  */
 export interface OrganizeConfig {
-  enabled: boolean
-  groupingMode: GroupingMode
-  groupingRules: GroupingRules
+  mode: OrganizeMode
+  date?: {
+    granularity: 'year' | 'month' | 'day'
+    source: 'exif' | 'modified'
+  }
+  namePattern?: {
+    regex: string
+    fallback: string
+  }
+  sizeLimit?: {
+    bytes: number
+  }
+  combined?: {
+    date: {
+      granularity: 'year' | 'month' | 'day'
+      source: 'exif' | 'modified'
+    }
+    sizeLimit: {
+      bytes: number
+    }
+  }
 }
 
-/**
- * Grouping mode type
- */
-export type GroupingMode = 'date' | 'pattern' | 'size-limit' | 'custom' | 'none'
-
-/**
- * Grouping rules based on mode
- */
-export interface GroupingRules {
-  // For 'date' mode
-  dateGranularity?: 'year' | 'month' | 'day'
-  datePattern?: string // e.g., "YYYY/MM"
-
-  // For 'pattern' mode
-  filenamePattern?: string // prefix, regex, or fuzzy
-  regexCaptureGroup?: number
-
-  // For 'size-limit' mode
-  maxSizeGB?: number
-  sortBy?: 'date' | 'filename'
-
-  // For 'custom' mode
-  customRules?: string[]
-}
+/** @deprecated Use OrganizeMode */
+export type GroupingMode = OrganizeMode
 
 /**
  * Named, saved recipe
@@ -192,11 +193,7 @@ export interface Recipe {
   created: string // ISO 8601 timestamp
   description?: string
   operations: Operation[]
-  organize: {
-    enabled: boolean
-    groupingMode?: GroupingMode
-    groupingRules?: GroupingRules
-  }
+  organize?: OrganizeConfig
 }
 
 /**

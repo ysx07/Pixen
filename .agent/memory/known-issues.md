@@ -14,3 +14,6 @@
 | `react-hooks/incompatible-library` suppressed on `useVirtualizer` | Cosmetic | Suppress is correct; React Compiler not in use | Revisit if React Compiler is adopted |
 | `saveToFolder` writes files in parallel — could stress browser file writer at scale | Low | No issues seen up to ~100 files in testing | Serialize writes in Phase 6 if reports emerge |
 | Sample previews run concurrently — 3 jobs at once could OOM on very large images | Low | No issues in testing | Serialize if reports emerge |
+| OrganizePanel has no Apply button — recomputes on every setting change | Low | Fast enough for typical batches; can feel spammy on slow devices | Add 300ms debounce or explicit Apply button in Phase 6 polish |
+| No unit tests for grouping utilities (group-by-date, group-by-pattern, group-by-size) | Low | Manual testing done | Phase 6 test pass |
+| exifr: files with no EXIF and no `lastModified` get epoch date (1970) as fallback | Low | Edge case (synthetic File objects); real files always have lastModified | Acceptable for MVP |

@@ -6,12 +6,17 @@ import { DeltaDisplay } from './components/DeltaDisplay';
 import { BatchQueue } from './components/BatchQueue';
 import { BatchControls } from './components/BatchControls';
 import { BatchSamplePreview } from './components/BatchSamplePreview';
+import { OrganizePreview } from './components/OrganizePreview';
 import type { SampleResult } from './components/BatchSamplePreview';
 import { usePipelineStore } from './stores/pipeline';
 import { useBatchStore } from './stores/batch';
+import { useOrganizeStore } from './stores/organize';
 import { runPipeline, useProcessingWorker } from './hooks/useProcessingWorker';
 import { useBatchProcessor } from './hooks/useBatchProcessor';
 import type { PipelineSuccess } from './workers/protocol';
+import { organize, toGroupedZipEntries } from './utils/organize';
+import type { GroupedItems } from './utils/organize';
+import type { GroupedZipEntries } from './utils/zip-download';
 
 // ── Single-image state ────────────────────────────────────────────────────────
 
@@ -58,6 +63,12 @@ export default function App() {
   const { runBatch, cancelBatch, completedOutputs, isProcessing } = useBatchProcessor({
     keepOriginalNames,
   });
+
+  // Organize state
+  const organizeConfig = useOrganizeStore((s) => s.config);
+  const [organizeGroups, setOrganizeGroups] = useState<GroupedItems | null>(null);
+  const [organizeZipEntries, setOrganizeZipEntries] = useState<GroupedZipEntries | null>(null);
+  const [isOrganizing, setIsOrganizing] = useState(false);
 
   const inputFormat = useMemo(() => {
     if (!input) return '';
@@ -214,6 +225,41 @@ export default function App() {
     await runBatch(operations);
   }, [operations, runBatch]);
 
+  // ── Counts for BatchControls ──────────────────────────────────────────────
+
+  const completedCount = batchStore.items.filter((i) => i.status === 'completed').length;
+  const errorCount = batchStore.items.filter((i) => i.status === 'error').length;
+
+  // ── Organize step (runs after batch completes) ────────────────────────────
+
+  useEffect(() => {
+    const completedItems = batchStore.items.filter(
+      (it) => it.status === 'completed' && it.outputFile,
+    );
+    if (isProcessing || completedItems.length === 0 || organizeConfig.mode === 'none') {
+      setOrganizeGroups(null);
+      setOrganizeZipEntries(null);
+      return;
+    }
+
+    let cancelled = false;
+    setIsOrganizing(true);
+
+    void organize(completedItems, organizeConfig).then(async (groups) => {
+      if (cancelled) return;
+      setOrganizeGroups(groups);
+      const zipEntries = await toGroupedZipEntries(groups);
+      if (!cancelled) {
+        setOrganizeZipEntries(zipEntries);
+        setIsOrganizing(false);
+      }
+    });
+
+    return () => { cancelled = true; };
+  // completedCount as a stable proxy for "batch items changed"
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isProcessing, organizeConfig, completedCount]);
+
   // ── Batch: reset to drop zone ──────────────────────────────────────────────
 
   const handleResetBatch = () => {
@@ -221,14 +267,11 @@ export default function App() {
     batchStore.clearBatch();
     setMode('single');
     setSamples([]);
+    setOrganizeGroups(null);
+    setOrganizeZipEntries(null);
     sampleUrlsRef.current.forEach((u) => URL.revokeObjectURL(u));
     sampleUrlsRef.current = [];
   };
-
-  // ── Counts for BatchControls ──────────────────────────────────────────────
-
-  const completedCount = batchStore.items.filter((i) => i.status === 'completed').length;
-  const errorCount = batchStore.items.filter((i) => i.status === 'error').length;
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -331,6 +374,9 @@ export default function App() {
                 </button>
               </div>
               <DropZone onFiles={handleFiles} />
+              {(organizeGroups || isOrganizing) && (
+                <OrganizePreview groups={organizeGroups} isComputing={isOrganizing} />
+              )}
               <BatchControls
                 totalCount={batchStore.items.length}
                 completedCount={completedCount}
@@ -342,6 +388,7 @@ export default function App() {
                 onPreviewSamples={() => void handlePreviewSamples()}
                 onCancel={cancelBatch}
                 outputs={completedOutputs}
+                organizeGroups={organizeZipEntries}
               />
             </>
           )}
@@ -349,7 +396,7 @@ export default function App() {
 
         {/* Middle pane — pipeline builder */}
         <section className="col-span-4 overflow-hidden rounded-md border border-taupe-200 bg-cream p-4">
-          <PipelineBuilder />
+          <PipelineBuilder showOrganize={mode === 'batch'} />
         </section>
 
         {/* Right pane — preview (single) or batch queue (batch) */}

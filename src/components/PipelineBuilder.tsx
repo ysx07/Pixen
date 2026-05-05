@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { usePipelineStore, type Operation } from '../stores/pipeline';
 import { OperationEditor } from './OperationEditor';
+import { OrganizePanel } from './OrganizePanel';
 
 const OPERATION_LABELS: Record<Operation['type'], string> = {
   resize: 'Resize',
@@ -42,7 +43,11 @@ function defaultOperation(type: Operation['type']): Operation {
   }
 }
 
-export function PipelineBuilder() {
+interface PipelineBuilderProps {
+  showOrganize?: boolean;
+}
+
+export function PipelineBuilder({ showOrganize = false }: PipelineBuilderProps) {
   const { operations, addOperation, removeOperation, updateOperation, moveOperation, clearPipeline } =
     usePipelineStore();
   const [adding, setAdding] = useState(false);
@@ -133,6 +138,15 @@ export function PipelineBuilder() {
             />
           </div>
         ))}
+
+        {showOrganize && (
+          <div className="mt-2 border-t border-taupe-200 pt-3">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-taupe-500">
+              Organize
+            </p>
+            <OrganizePanel />
+          </div>
+        )}
       </div>
     </div>
   );
