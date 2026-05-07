@@ -1,5 +1,6 @@
 import type { Operation } from '../stores/pipeline';
 import { useAppSettingsStore } from '../stores/app-settings';
+import { RMBG_AVAILABLE } from '../utils/build-flags';
 
 interface OperationEditorProps {
   operation: Operation;
@@ -208,13 +209,21 @@ export function OperationEditor({ operation, onChange }: OperationEditorProps) {
               <option value="imgly-isnet">IS-Net (default, AGPL-3.0)</option>
               <option
                 value="rmbg-1.4-fp16"
-                disabled={!settings.rmbgLicenseAcknowledged}
+                disabled={!RMBG_AVAILABLE || !settings.rmbgLicenseAcknowledged}
               >
                 RMBG-1.4 (advanced, non-commercial)
+                {!RMBG_AVAILABLE ? ' — desktop only' : ''}
               </option>
             </select>
           </label>
-          {!settings.rmbgLicenseAcknowledged && (
+          {!RMBG_AVAILABLE && (
+            <p className="rounded border border-taupe-300 bg-taupe-50 p-2 text-[11px] text-taupe-600">
+              RMBG-1.4 is bundled with the desktop app for fully offline use. The
+              web demo runs the IS-Net default, which is also high quality and
+              loads on demand.
+            </p>
+          )}
+          {RMBG_AVAILABLE && !settings.rmbgLicenseAcknowledged && (
             <label className="flex items-start gap-2 text-xs text-taupe-600">
               <input
                 type="checkbox"

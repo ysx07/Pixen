@@ -1,7 +1,7 @@
 # Active Context
 
 ## Current State
-**Phase 4 (Recipe System) — IMPLEMENTATION COMPLETE.** Type-check, lint, and build all pass. Awaiting manual test sign-off before commit.
+**Phase 5 (AI Features) — COMPLETE.** AI-powered Background Removal and Upscaling (with tiling) are fully integrated and verified. ONNX Runtime Web is configured with WASM fallback and IndexedDB caching. Batch sample previews are functional.
 
 ## What Was Done (Phase 4)
 - Rewrote `src/stores/recipes.ts` — Zustand `persist` middleware (replaces manual localStorage), `crypto.randomUUID()` IDs, aligned `Recipe` interface to spec (`version`, `created: string ISO 8601`, `organize?`), fixed 7 bugs from scaffold, added `duplicateRecipe` + `loadRecipeIntoPipeline`
@@ -43,17 +43,13 @@
 - 3-pane UI with live before/after preview
 
 ## What's Next
-**Phase 5: AI Features — Very High complexity. Recommended model: Opus 4.6.**
+**Phase 6: Testing & Optimization**
 
 Key tasks:
-- ONNX Runtime Web integration in a new `ai-worker.ts` (separate from vips worker)
-- Background removal model (decide RMBG-1.4 vs mediapipe at start)
-- Model download + progress + IndexedDB caching
-- WebGPU → WASM fallback chain
-- Spatial tiling for upscaling (mandatory)
-- Sequential AI queue with cancel
-- Hardware capability detection
-- `background-removal` and `upscale` ops as working pipeline steps (currently "(P5)" placeholders)
+- Unit tests for all utilities (Batch Processor, VIPS ops, AI Tiling)
+- Folder Picker enhancements (Recursive file discovery)
+- UI Polish: Refine drag-to-reorder interaction in the pipeline builder
+- Bundle audit and Vite optimization
 
 ## Known Deferred Items
 - Drag-to-reorder ops → Phase 6

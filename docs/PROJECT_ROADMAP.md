@@ -1,5 +1,9 @@
 # Project Roadmap
 
+## Current Status
+**Phase 6: Polish & Portfolio Readiness** (In Progress)
+Last updated: 2026-05-08
+
 ## Project Overview
 
 **Vision:**
@@ -137,28 +141,27 @@ Use this to choose the right model for each phase. Complexity is driven by algor
 
 ---
 
+---
+
 ## Phase 5: AI Features
 
 **Goal:** Background removal and upscaling running client-side with proper UX.
 
-**Complexity:** Very High — **Recommended model: Opus 4.6**
-
 **Exit criteria:** A user can add background removal to their pipeline, see the model download once with progress, and process a batch of 20 images with clear per-image progress. On a device without WebGPU, the fallback path works with an honest timing warning.
 
-- [ ] Integrate ONNX Runtime Web
-- [ ] Background removal model (decide Option A or B at Phase 5 start)
-  - [ ] Download + progress UI ("this only happens once")
-  - [ ] IndexedDB caching
-  - [ ] Processing in AI worker thread
-  - [ ] Sequential queue with cancel
-  - [ ] Performance display (detected backend + estimated time)
-  - [ ] WebGPU → WASM fallback with user notification
-- [ ] Upscaling model (realesr-general-x4v3, ~5MB)
-  - [ ] Same infrastructure as background removal
-  - [ ] Spatial tiling implementation (mandatory)
-  - [ ] Desktop-only note in web UI for full model
-- [ ] AI operations as pipeline steps (placed before organize step)
-- [ ] Hardware capability detection on app load (report to UI)
+- [x] Integrate ONNX Runtime Web
+- [x] Background removal model (RMBG-1.4)
+  - [x] Download + progress UI ("this only happens once")
+  - [x] IndexedDB caching
+  - [x] Processing in AI worker thread
+  - [x] Sequential queue with cancel
+  - [x] Performance display (detected backend + estimated time)
+  - [x] WebGPU → WASM fallback with user notification
+- [x] Upscaling model (realesr-general-x4v3)
+  - [x] Same infrastructure as background removal
+  - [x] Spatial tiling implementation (mandatory)
+- [x] AI operations as pipeline steps (placed before organize step)
+- [x] Hardware capability detection on app load (report to UI)
 
 ---
 
@@ -171,6 +174,9 @@ Use this to choose the right model for each phase. Complexity is driven by algor
 **Exit criteria:** A non-technical user can land on the page, understand what the app does in 5 seconds, drag in their photos, and process them without needing any instructions.
 
 - [ ] UI polish pass: spacing, transitions, empty states, loading states, error states
+- [ ] Unit testing: formal tests for batch processor, VIPS ops, and AI tiling
+- [ ] Folder Picker enhancements: recursive file discovery
+- [ ] Drag-to-reorder operations in the pipeline builder
 - [ ] Onboarding: 3-step first-run guide (add images → build pipeline → run)
 - [ ] Keyboard shortcuts for power users
 - [ ] Accessibility audit (WCAG 2.1 AA minimum)

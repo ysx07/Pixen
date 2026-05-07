@@ -16,6 +16,7 @@ import type { OutputFormat, ProgressMessage } from '../workers/protocol';
 import { removeBackgroundFromFile } from '../utils/bg-removal';
 import { upscaleFile } from '../utils/upscale';
 import { useAppSettingsStore } from '../stores/app-settings';
+import { RMBG_AVAILABLE } from '../utils/build-flags';
 
 export interface AiPipelineProgress {
   step: number;
@@ -158,8 +159,14 @@ async function applyAiOp(
   cb: AiOpProgressArgs,
 ): Promise<File> {
   if (op.type === 'background-removal') {
+    // Web demo builds don't ship RMBG-1.4. Fall back to IS-Net so the run
+    // succeeds instead of erroring on a 404 model fetch.
+    const effectiveModel: 'imgly-isnet' | 'rmbg-1.4-fp16' =
+      bgModel === 'rmbg-1.4-fp16' && !RMBG_AVAILABLE
+        ? 'imgly-isnet'
+        : (bgModel as 'imgly-isnet' | 'rmbg-1.4-fp16');
     const blob = await removeBackgroundFromFile(input, {
-      model: bgModel as 'imgly-isnet' | 'rmbg-1.4-fp16',
+      model: effectiveModel,
       preferGpu,
       signal: cb.signal,
       onProgress: cb.onProgress,

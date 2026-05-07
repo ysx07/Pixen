@@ -1,0 +1,13 @@
+## ONNX model weights — track via Git LFS
+##
+## NOTE: This config is set up so future changes to the model files use LFS,
+## but the existing files committed in `Phase 5 Try 1` (d14fc8d) still live
+## in plain git history. To migrate the existing files into LFS (rewrites
+## that commit), run:
+##
+##   git lfs install
+##   git lfs migrate import --include="public/models/*.onnx" --everything
+##   git push --force-with-lease origin main
+##
+## Only do this if you've checked you are the sole pusher to main.
+public/models/*.onnx filter=lfs diff=lfs merge=lfs -text

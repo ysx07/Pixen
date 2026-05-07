@@ -70,6 +70,7 @@ async function handleInit(id: string): Promise<void> {
 
   // ort.env tweaks: avoid noisy logging, let ORT choose worker thread count.
   ort.env.logLevel = 'warning';
+  ort.env.wasm.wasmPaths = self.location.origin + '/';
 
   send({ id, type: 'init', status: 'success', backend: detectedBackend });
 }

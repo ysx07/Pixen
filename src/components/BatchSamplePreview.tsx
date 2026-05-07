@@ -30,19 +30,19 @@ export function BatchSamplePreview({ samples, onConfirm, onClose }: BatchSampleP
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-taupe-900/60 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-taupe-900/60 p-4 backdrop-blur-sm"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
         ref={dialogRef}
-        className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-taupe-200 bg-cream shadow-xl"
+        className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-taupe-200 bg-cream shadow-2xl"
         role="dialog"
         aria-modal="true"
         aria-label="Batch sample preview"
       >
-        <header className="flex items-center justify-between border-b border-taupe-200 px-5 py-4">
+        <header className="sticky top-0 z-10 flex items-center justify-between border-b border-taupe-200 bg-cream px-5 py-4">
           <div>
             <h2 className="font-serif text-lg text-taupe-900">Sample preview</h2>
             <p className="text-xs text-taupe-600">

@@ -35,9 +35,9 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    // wasm-vips ships its own wasm loader; pre-bundling breaks its relative
-    // asset resolution and serves HTML for vips.wasm.
-    exclude: ['wasm-vips'],
+    // wasm-vips and onnxruntime-web ship their own wasm loaders; pre-bundling 
+    // breaks their relative asset resolution and serves HTML for .wasm/.mjs files.
+    exclude: ['wasm-vips', 'onnxruntime-web'],
     esbuildOptions: {
       target: 'ES2020',
     },

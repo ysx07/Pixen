@@ -1,8 +1,27 @@
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --color-cream: #FAFAF7;
+  --color-taupe-50: #F5F3F0;
+  --color-taupe-100: #EDEAE5;
+  --color-taupe-200: #DDD7CF;
+  --color-taupe-300: #C8C1B7;
+  --color-taupe-400: #A29E94;
+  --color-taupe-500: #8B867A;
+  --color-taupe-600: #716D63;
+  --color-taupe-700: #5D5951;
+  --color-taupe-800: #4D4A45;
+  --color-taupe-900: #3A3A36;
+  --color-error: #B91C1C;
+}
+
+@layer base {
+  * {
+    @apply border-taupe-200;
+  }
+}
 
 * {
   margin: 0;

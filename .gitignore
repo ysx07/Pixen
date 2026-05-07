@@ -105,3 +105,6 @@ site/CLAUDE.md
 .agent/workflows/
 .agent/mcp/claude-mcp-config.json
 .agent/mcp/gemini-mcp-config.json
+
+# Model Artifacts
+artifacts/
